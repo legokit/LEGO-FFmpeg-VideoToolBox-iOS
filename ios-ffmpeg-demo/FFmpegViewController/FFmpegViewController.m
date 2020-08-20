@@ -68,12 +68,17 @@ extern "C" {
         }
     }];
     
+    i = 0;
+    
+    
     // Do any additional setup after loading the view.
 }
 
+static int i = 0;
 -(void)getDecodeVideoDataByFFmpeg:(CMSampleBufferRef)sampleBuffer {
     CVPixelBufferRef pix = CMSampleBufferGetImageBuffer(sampleBuffer);
     [self.previewView inputPixelBuffer:pix];
+    NSLog(@"CVPixelBufferRef=%d",i ++);
 }
 
 - (void)captureOutput:(AVCaptureOutput *)output didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
