@@ -97,7 +97,7 @@ static const uint8_t startCode[4] = {0, 0, 0, 1};
         self.playLayer.hidden = NO;
         [self initInputFile];
         self.dispalyLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(startDecode)];
-        self.dispalyLink.frameInterval = 0.1;
+        self.dispalyLink.frameInterval = 1;
         [self.dispalyLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
     });
 }
