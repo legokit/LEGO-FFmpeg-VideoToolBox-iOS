@@ -11,7 +11,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface FFmpegViewController : RecordViewController
+@interface FFmpegViewController : UIViewController
 
 @end
 

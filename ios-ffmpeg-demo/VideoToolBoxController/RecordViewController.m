@@ -34,8 +34,34 @@
     
     captureQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
-
     // Do any additional setup after loading the view.
+}
+
+// 设置镜头帧率
+- (void)cameraForWithFrameRate:(CGFloat)frameRate {
+    if ([self supportedForFrateRate:frameRate]) {
+        if ([self.captureDeviceInput.device lockForConfiguration:NULL]) {
+            [self.captureDeviceInput.device setActiveVideoMaxFrameDuration:CMTimeMake(1, frameRate)];
+            [self.captureDeviceInput.device setActiveVideoMinFrameDuration:CMTimeMake(1, frameRate)];
+            [self.captureDeviceInput.device unlockForConfiguration];
+        }
+    }
+}
+
+- (BOOL)supportedForFrateRate:(int)frameRate {
+    if (frameRate == 0) {
+        return NO;
+    }
+    CMTime frameDuration = CMTimeMake(1, frameRate);
+    NSArray *supportedFrameRateRanges = [self.captureDeviceInput.device.activeFormat videoSupportedFrameRateRanges];
+    BOOL frameRateSupported = NO;
+    for (AVFrameRateRange *range in supportedFrameRateRanges) {
+        if (CMTIME_COMPARE_INLINE(frameDuration, >=, range.minFrameDuration) &&
+            CMTIME_COMPARE_INLINE(frameDuration, <=, range.maxFrameDuration)) {
+            frameRateSupported = YES;
+        }
+    }
+    return frameRateSupported;
 }
 
 - (void)startBtnAction{
@@ -98,6 +124,8 @@
     if ([self.captureSession canAddOutput:self.captureDeviceOutput]) {
         [self.captureSession addOutput:self.captureDeviceOutput];
     }
+    
+    [self cameraForWithFrameRate:60];
     
     //建立连接
     AVCaptureConnection *connection = [self.captureDeviceOutput connectionWithMediaType:AVMediaTypeVideo];

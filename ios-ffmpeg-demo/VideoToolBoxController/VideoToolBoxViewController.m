@@ -66,6 +66,8 @@ static const uint8_t startCode[4] = {0, 0, 0, 1};
     [self.view.layer insertSublayer:layer atIndex:0];
     self.playLayer = layer;
     self.playLayer.hidden = YES;
+    
+    i = 0;
 }
 
 - (void)startCaputureSession {
@@ -74,7 +76,6 @@ static const uint8_t startCode[4] = {0, 0, 0, 1};
     [self configFileHandle];
 
     [super startCaputureSession];
-    
     
     self.playLayer.hidden = YES;
 }
@@ -89,32 +90,26 @@ static const uint8_t startCode[4] = {0, 0, 0, 1};
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         
-        NSString *filePath = [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject] stringByAppendingPathComponent:H264FilePath];//
+        NSString *filePath = [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject] stringByAppendingPathComponent:H264FilePath];
         UIActivityViewController *activityVC = [[UIActivityViewController alloc] initWithActivityItems:@[[NSURL fileURLWithPath:filePath]] applicationActivities:nil];
         [self presentViewController:activityVC animated:YES completion:nil];
         
         self.playLayer.hidden = NO;
         [self initInputFile];
         self.dispalyLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(startDecode)];
-        self.dispalyLink.frameInterval = 2; // 默认是30FPS的帧率录制
-        [self.dispalyLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+        self.dispalyLink.frameInterval = 0.1;
+        [self.dispalyLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
     });
 }
 
-- (void)captureOutput:(AVCaptureOutput *)output didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection{
-    dispatch_sync(encodeQueue, ^{
-        [self encode:sampleBuffer];
-    });
-}
-
-
-#pragma mark - VideoToolBox编码
+#pragma mark - 编码
 - (void)initVideoToolBox {
     dispatch_sync(encodeQueue  , ^{
         frameNO = 0;
         
 //        3840x2160;
         int width = 2160, height = 3840;
+
         OSStatus status = VTCompressionSessionCreate(NULL, width, height, kCMVideoCodecType_H264, NULL, NULL, NULL, didCompressH264, (__bridge void *)(self),  &encodingSession);
         NSLog(@"H264: VTCompressionSessionCreate %d", (int)status);
         if (status != 0)
@@ -138,12 +133,12 @@ static const uint8_t startCode[4] = {0, 0, 0, 1};
         VTSessionSetProperty(encodingSession, kVTCompressionPropertyKey_ExpectedFrameRate, fpsRef);
         
         //设置码率，均值，单位是byte
-        int bitRate = width * height * 3 * 4 * 80;
+        int bitRate = width * height * 3 * 4 * 25;
         CFNumberRef bitRateRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &bitRate);
         VTSessionSetProperty(encodingSession, kVTCompressionPropertyKey_AverageBitRate, bitRateRef);
         
         //设置码率，上限，单位是bps
-        int bitRateLimit = width * height * 3 * 4 * 80;
+        int bitRateLimit = width * height * 3 * 4 * 25;
         CFNumberRef bitRateLimitRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &bitRateLimit);
         VTSessionSetProperty(encodingSession, kVTCompressionPropertyKey_DataRateLimits, bitRateLimitRef);
         
@@ -152,8 +147,26 @@ static const uint8_t startCode[4] = {0, 0, 0, 1};
     });
 }
 
-//编码sampleBuffer
-- (void)encode:(CMSampleBufferRef )sampleBuffer
+- (void)configFileHandle{
+    NSString *filePath = [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject] stringByAppendingPathComponent:H264FilePath];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    //文件存在的话先删除文件
+    if ([fileManager fileExistsAtPath:filePath]) {
+        [fileManager removeItemAtPath:filePath error:nil];
+    }
+    [fileManager createFileAtPath:filePath contents:nil attributes:nil];
+    self.h264FileHandle = [NSFileHandle fileHandleForWritingAtPath:filePath];
+}
+
+
+- (void)captureOutput:(AVCaptureOutput *)output didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection{
+    dispatch_sync(encodeQueue, ^{
+        [self encode:sampleBuffer];
+    });
+}
+
+- (void)encode:(CMSampleBufferRef)sampleBuffer
 {
     CVImageBufferRef imageBuffer = (CVImageBufferRef)CMSampleBufferGetImageBuffer(sampleBuffer);
     // 帧时间，如果不设置会导致时间轴过长。
@@ -279,21 +292,6 @@ void didCompressH264(void *outputCallbackRefCon, void *sourceFrameRefCon, OSStat
     encodingSession = NULL;
 }
 
-
-
-- (void)configFileHandle{
-    NSString *filePath = [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject] stringByAppendingPathComponent:H264FilePath];
-    
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    //文件存在的话先删除文件
-    if ([fileManager fileExistsAtPath:filePath]) {
-        [fileManager removeItemAtPath:filePath error:nil];
-    }
-    [fileManager createFileAtPath:filePath contents:nil attributes:nil];
-    self.h264FileHandle = [NSFileHandle fileHandleForWritingAtPath:filePath];
-}
-
-
 - (void)closeFileHandle{
     if (self.h264FileHandle) {
         [self.h264FileHandle closeFile];
@@ -301,10 +299,11 @@ void didCompressH264(void *outputCallbackRefCon, void *sourceFrameRefCon, OSStat
     }
 }
 
+
+#pragma make -解码
 - (void)initInputFile
 {
     NSString *filePath = [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject] stringByAppendingPathComponent:H264FilePath];
-    
     self.inputStream = [[NSInputStream alloc] initWithFileAtPath:filePath];
     [self.inputStream open];
     _inputSize = 0;
@@ -312,19 +311,91 @@ void didCompressH264(void *outputCallbackRefCon, void *sourceFrameRefCon, OSStat
     _inputBuffer = calloc(_inputMaxSize, 1);
 }
 
-- (void)inputEnd {
-    [self.inputStream close];
-    self.inputStream = nil;
-    if (_inputBuffer) {
-        free(_inputBuffer);
-        _inputBuffer = NULL;
+- (void)startDecode
+{
+    [self readPacket];
+    if(_packetBuffer == NULL || _packetSize == 0) {
+        [self inputEnd];
+        return;
     }
-    [self.dispalyLink setPaused:YES];
-
     
+    //将NALU的开始码替换成NALU的长度信息，长度固定4个字节
+    uint32_t nalSize = (uint32_t)(_packetSize - 4);
+    uint32_t *pNalSize = (uint32_t *)_packetBuffer;
+    *pNalSize = CFSwapInt32HostToBig(nalSize);
+    
+    int nalType = _packetBuffer[4] & 0x1F;
+    switch (nalType) {
+        case 0x05:
+            NSLog(@"Nal type is IDR frame");
+            [self initVideoToolBoxWithDecodec];
+            [self decode];
+            break;
+        case 0x07:
+            NSLog(@"Nal type is SPS");
+            if (_sps) {
+                free(_sps);
+                _sps = NULL;
+            }
+            _spsSize = _packetSize - 4;
+            _sps = malloc(_spsSize);
+            memcpy(_sps, _packetBuffer + 4, _spsSize);
+            break;
+        case 0x08:
+            NSLog(@"Nal type is PPS");
+            if (_pps) {
+                free(_pps);
+                _pps = NULL;
+            }
+            _ppsSize = _packetSize - 4;
+            _pps = malloc(_ppsSize);
+            memcpy(_pps, _packetBuffer + 4, _ppsSize);
+            break;
+        default:
+            NSLog(@"Nal type is B/P frame");
+            [self decode];
+            break;
+    }
+
+    NSLog(@"Read Nalu size %ld", _packetSize);
 }
 
-- (void)initVideoToolbox
+
+- (void)readPacket {
+    if (_packetSize && _packetBuffer) {
+        _packetSize = 0;
+        free(_packetBuffer);
+        _packetBuffer = NULL;
+    }
+    if (_inputSize < _inputMaxSize && self.inputStream.hasBytesAvailable) {
+        _inputSize += [self.inputStream read:_inputBuffer + _inputSize maxLength:_inputMaxSize - _inputSize];
+    }
+    if (memcmp(_inputBuffer, startCode, 4) == 0) {
+        if (_inputSize > 4) {
+            uint8_t *pStart = _inputBuffer + 4;
+            uint8_t *pEnd = _inputBuffer + _inputSize;
+            while (pStart != pEnd) {
+                if(memcmp(pStart - 3, startCode, 4) == 0) {
+                    _packetSize = pStart - _inputBuffer - 3;
+                    if (_packetBuffer) {
+                        free(_packetBuffer);
+                        _packetBuffer = NULL;
+                    }
+                    _packetBuffer = calloc(_packetSize, 1);
+                    memcpy(_packetBuffer, _inputBuffer, _packetSize); //复制packet内容到新的缓冲区
+                    memmove(_inputBuffer, _inputBuffer + _packetSize, _inputSize - _packetSize); //把缓冲区前移
+                    _inputSize -= _packetSize;
+                    break;
+                }
+                else {
+                    ++pStart;
+                }
+            }
+        }
+    }
+}
+
+- (void)initVideoToolBoxWithDecodec
 {
     // 根据sps pps创建解码视频参数
     CMFormatDescriptionRef fmtDesc;
@@ -376,60 +447,18 @@ void didCompressH264(void *outputCallbackRefCon, void *sourceFrameRefCon, OSStat
     }else {
         CFRelease(fmtDesc);
     }
-
-
-    
 }
 
-- (void)startDecode
+static int i = 0;
+static void decodeOutputDataCallback(void *decompressionOutputRefCon, void *sourceFrameRefCon, OSStatus status, VTDecodeInfoFlags infoFlags, CVImageBufferRef pixelBuffer, CMTime presentationTimeStamp, CMTime presentationDuration)
 {
-    [self readPacket];
-    if(_packetBuffer == NULL || _packetSize == 0) {
-        [self inputEnd];
-        return;
-    }
-    
-    //将NALU的开始码替换成NALU的长度信息，长度固定4个字节
-    uint32_t nalSize = (uint32_t)(_packetSize - 4);
-    uint32_t *pNalSize = (uint32_t *)_packetBuffer;
-    *pNalSize = CFSwapInt32HostToBig(nalSize);
-    
-    int nalType = _packetBuffer[4] & 0x1F;
-    switch (nalType) {
-        case 0x05:
-            NSLog(@"Nal type is IDR frame");
-            [self initVideoToolbox];
-            [self decode];
-            break;
-        case 0x07:
-            NSLog(@"Nal type is SPS");
-            if (_sps) {
-                free(_sps);
-                _sps = NULL;
-            }
-            _spsSize = _packetSize - 4;
-            _sps = malloc(_spsSize);
-            memcpy(_sps, _packetBuffer + 4, _spsSize);
-            break;
-        case 0x08:
-            NSLog(@"Nal type is PPS");
-            if (_pps) {
-                free(_pps);
-                _pps = NULL;
-            }
-            _ppsSize = _packetSize - 4;
-            _pps = malloc(_ppsSize);
-            memcpy(_pps, _packetBuffer + 4, _ppsSize);
-            break;
-        default:
-            NSLog(@"Nal type is B/P frame");
-            [self decode];
-            break;
-    }
-
-    NSLog(@"Read Nalu size %ld", _packetSize);
-    
+    CVPixelBufferRetain(pixelBuffer);
+    VideoToolBoxViewController *vc = (__bridge VideoToolBoxViewController *)decompressionOutputRefCon;
+    [vc.playLayer inputPixelBuffer:pixelBuffer];
+    CVPixelBufferRelease(pixelBuffer);
+    NSLog(@"CVPixelBufferRef=%d",i ++);
 }
+
 - (void)decode
 {
     CMBlockBufferRef blockBuffer = NULL;
@@ -465,54 +494,21 @@ void didCompressH264(void *outputCallbackRefCon, void *sourceFrameRefCon, OSStat
     {
         NSLog(@"H264Decoder::decode failed status = %d", (int)decodeStatus);
     }
-    // Create了就得Release
+
     CFRelease(sampleBuffer);
     CFRelease(blockBuffer);
 }
 
-- (void)readPacket {
-    if (_packetSize && _packetBuffer) {
-        _packetSize = 0;
-        free(_packetBuffer);
-        _packetBuffer = NULL;
+- (void)inputEnd {
+    [self.inputStream close];
+    self.inputStream = nil;
+    if (_inputBuffer) {
+        free(_inputBuffer);
+        _inputBuffer = NULL;
     }
-    if (_inputSize < _inputMaxSize && self.inputStream.hasBytesAvailable) {
-        _inputSize += [self.inputStream read:_inputBuffer + _inputSize maxLength:_inputMaxSize - _inputSize];
-    }
-    if (memcmp(_inputBuffer, startCode, 4) == 0) {
-        if (_inputSize > 4) {
-            uint8_t *pStart = _inputBuffer + 4;
-            uint8_t *pEnd = _inputBuffer + _inputSize;
-            while (pStart != pEnd) {
-                if(memcmp(pStart - 3, startCode, 4) == 0) {
-                    _packetSize = pStart - _inputBuffer - 3;
-                    if (_packetBuffer) {
-                        free(_packetBuffer);
-                        _packetBuffer = NULL;
-                    }
-                    _packetBuffer = calloc(_packetSize, 1);
-                    memcpy(_packetBuffer, _inputBuffer, _packetSize); //复制packet内容到新的缓冲区
-                    memmove(_inputBuffer, _inputBuffer + _packetSize, _inputSize - _packetSize); //把缓冲区前移
-                    _inputSize -= _packetSize;
-                    break;
-                }
-                else {
-                    ++pStart;
-                }
-            }
-        }
-    }
+    [self.dispalyLink setPaused:YES];
+    
 }
-
-static void decodeOutputDataCallback(void *decompressionOutputRefCon, void *sourceFrameRefCon, OSStatus status, VTDecodeInfoFlags infoFlags, CVImageBufferRef pixelBuffer, CMTime presentationTimeStamp, CMTime presentationDuration)
-{
-    CVPixelBufferRetain(pixelBuffer);
-    VideoToolBoxViewController *vc = (__bridge VideoToolBoxViewController *)decompressionOutputRefCon;
-    [vc.playLayer inputPixelBuffer:pixelBuffer];
-    CVPixelBufferRelease(pixelBuffer);
-
-}
-
 
 @end
 

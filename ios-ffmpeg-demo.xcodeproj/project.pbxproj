@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E875385324EF6EBA00112725 /* IMG_0265.MOV in Resources */ = {isa = PBXBuildFile; fileRef = E875385224EF6EBA00112725 /* IMG_0265.MOV */; };
 		E8A40B2924ECC1620000C8C5 /* libavutil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E8A40B0724ECC1610000C8C5 /* libavutil.a */; };
 		E8A40B2A24ECC1620000C8C5 /* libavfilter.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E8A40B0824ECC1610000C8C5 /* libavfilter.a */; };
 		E8A40B2B24ECC1620000C8C5 /* libavcodec.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E8A40B0924ECC1610000C8C5 /* libavcodec.a */; };
@@ -59,6 +60,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		E875385224EF6EBA00112725 /* IMG_0265.MOV */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = IMG_0265.MOV; sourceTree = "<group>"; };
 		E8A40A8E24ECC1610000C8C5 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
 		E8A40A8F24ECC1610000C8C5 /* postprocess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = postprocess.h; sourceTree = "<group>"; };
 		E8A40A9124ECC1610000C8C5 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
@@ -541,6 +543,7 @@
 			isa = PBXGroup;
 			children = (
 				E8B9BBE024ED735D0094108D /* IMG_0767.MOV */,
+				E875385224EF6EBA00112725 /* IMG_0265.MOV */,
 				E8A40A8B24ECC1610000C8C5 /* FFmpeg-iOS */,
 				E8BD0FF124EBAA92004B9588 /* AppDelegate.h */,
 				E8BD0FF224EBAA92004B9588 /* AppDelegate.m */,
@@ -698,6 +701,7 @@
 				E8BD100124EBAA94004B9588 /* LaunchScreen.storyboard in Resources */,
 				E8B9BBE124ED735D0094108D /* IMG_0767.MOV in Resources */,
 				E8BD0FFE24EBAA94004B9588 /* Assets.xcassets in Resources */,
+				E875385324EF6EBA00112725 /* IMG_0265.MOV in Resources */,
 				E8BD0FFC24EBAA92004B9588 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -945,6 +949,7 @@
 					"$(PROJECT_DIR)/ios-ffmpeg-demo/FFmpeg-iOS/lib",
 					"$(PROJECT_DIR)/ios-ffmpeg-demo/fat-x264/lib",
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.fimo.camera.debug.ios-ffmpeg-demo";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
